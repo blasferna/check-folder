@@ -2,7 +2,7 @@ name: Check Folder Structure
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: opened
 
 jobs:
   check-folder-structure:
