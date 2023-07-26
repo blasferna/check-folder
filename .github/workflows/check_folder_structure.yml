@@ -7,21 +7,19 @@ on:
 jobs:
   check-folder-structure:
     runs-on: ubuntu-latest
+    outputs:
+      comment: ${{ steps.check.outputs.comment }}
     steps:
     - uses: actions/checkout@v2
-    - name: Fetch all branches
-      run: git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
-    - name: Get PR files
-      id: pr_files
-      run: |
-        PR_NUM=$(echo "${{ github.event.pull_request.number }}")
-        PR_BRANCH=$(git branch --contains "refs/pull/${PR_NUM}/merge" | grep -v 'HEAD' | xargs)
-        FILES=$(git diff --name-only "${PR_BRANCH}" "${{ github.event.pull_request.base.ref }}" | xargs)
-        echo "::set-output name=files::${FILES}"
+    - name: Get changed files
+      id: changed_files
+      uses: tj-actions/changed-files@v37.5.0
     - name: Check if folder structure is correct
+      id: check
       run: |
         PR_USERNAME=$(echo "${{ github.event.pull_request.user.login }}")
-        FILES_ARR=(${{ steps.pr_files.outputs.files }})
+        FILES="${{ steps.changed_files.outputs.all_modified_files }}"
+        IFS=' ' read -r -a FILES_ARR <<< "$FILES"
         
         for FILE in "${FILES_ARR[@]}"; do
           TEST_FOLDER=$(echo ${FILE} | cut -d'/' -f2)
@@ -32,18 +30,15 @@ jobs:
             break
           fi
         done
-      id: check
-      outputs:
-        comment: ${{ steps.check.outputs.comment }}
     - name: Comment PR
       if: steps.check.outputs.comment != ''
       uses: actions/github-script@v6
       with:
         github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
-          github.issues.createComment({
+          github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: "${{ steps.check.outputs.comment }}"
+            body: "${{ job.outputs.comment }}"
           })
