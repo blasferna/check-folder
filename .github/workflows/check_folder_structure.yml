@@ -11,20 +11,17 @@ jobs:
       comment: ${{ steps.check.outputs.comment }}
     steps:
     - uses: actions/checkout@v2
-    - name: Fetch all branches
-      run: git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
-    - name: Get PR files
-      id: pr_files
-      run: |
-        PR_NUM=$(echo "${{ github.event.pull_request.number }}")
-        PR_BRANCH=$(git branch --contains "refs/pull/${PR_NUM}/merge" | grep -v 'HEAD' | xargs)
-        git diff --name-only "${PR_BRANCH}" "${{ github.event.pull_request.base.ref }}" > pr_files.txt
+    - name: Get changed files
+      id: changed_files
+      uses: tj-actions/changed-files@v37.5.0
     - name: Check if folder structure is correct
       id: check
       run: |
         PR_USERNAME=$(echo "${{ github.event.pull_request.user.login }}")
+        FILES="${{ steps.changed_files.outputs.all_modified_files }}"
+        IFS=' ' read -r -a FILES_ARR <<< "$FILES"
         
-        while read -r FILE; do
+        for FILE in "${FILES_ARR[@]}"; do
           TEST_FOLDER=$(echo ${FILE} | cut -d'/' -f2)
           if [[ ${FILE} != pruebas/${TEST_FOLDER}/${PR_USERNAME}/* ]]; then
             echo "Incorrect folder structure in file: ${FILE}. Requesting changes."
@@ -32,7 +29,7 @@ jobs:
             echo "::set-output name=comment::$(cat message.txt)"
             break
           fi
-        done < pr_files.txt
+        done
     - name: Comment PR
       if: steps.check.outputs.comment != ''
       uses: actions/github-script@v6
