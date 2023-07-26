@@ -19,6 +19,7 @@ jobs:
         FILES=$(git diff --name-only "${PR_BRANCH}" "${{ github.event.pull_request.base.ref }}" | xargs)
         echo "::set-output name=files::${FILES}"
     - name: Check if folder structure is correct
+      id: check
       run: |
         PR_USERNAME=$(echo "${{ github.event.pull_request.user.login }}")
         FILES_ARR=(${{ steps.pr_files.outputs.files }})
@@ -32,7 +33,6 @@ jobs:
             break
           fi
         done
-      id: check
       outputs:
         comment: ${{ steps.check.outputs.comment }}
     - name: Comment PR
